@@ -1,0 +1,24 @@
+controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\Controller
+    type: attribute
+
+
+api_v1:
+    resource: 'routes/api_v1.yaml'
+    type: yaml
+    prefix: /api/v1
+
+api_v2:
+    resource: 'routes/api_v2.yaml'
+    type: yaml
+    prefix: /api/v2
+
+    
+api_doc_redirect:
+    path: /api/documentation
+    controller: Symfony\Bundle\FrameworkBundle\Controller\RedirectController
+    defaults:
+        path: /redoc.html
+    methods: [GET]

@@ -1,0 +1,77 @@
+<?php
+
+namespace App\Controller\Api\V2;
+
+use App\Repository\HandsetRepository;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Annotation\Route;
+
+class HandsetController extends AbstractController
+{
+    #[Route('/handsets', name: 'api_v2_handsets', methods: ['GET'])]
+    public function index(Request $request, HandsetRepository $handsetRepository): JsonResponse
+    {
+        // Parse filters from request
+        $filters = [
+            'brand' => $request->query->get('brand'),
+            'price_min' => $request->query->get('price_min'),
+            'price_max' => $request->query->get('price_max'),
+            'release_year' => $request->query->get('release_year'),
+            'features' => $request->query->all('features'),
+            'search' => $request->query->get('search'),
+            'page' => $request->query->getInt('page', 1),
+            'per_page' => $request->query->getInt('per_page', 20),
+        ];
+
+        [$handsets, $total, $lastPage] = $handsetRepository->findByFilters($filters);
+
+        // Build pagination links (assuming query params preserved)
+        $pagination = [
+            'total_items'    => $total,
+            'items_per_page' => $filters['per_page'],
+            'current_page'   => $filters['page'],
+            'total_pages'    => $lastPage,
+            'links' => [
+                'first' => '/api/v2/handsets?page=1',
+                'last'  => "/api/v2/handsets?page={$lastPage}",
+                'next'  => $filters['page'] < $lastPage ? "/api/v2/handsets?page=" . ($filters['page'] + 1) : null,
+                'prev'  => $filters['page'] > 1 ? "/api/v2/handsets?page=" . ($filters['page'] - 1) : null,
+            ]
+        ];
+
+        return $this->json([
+            'data' => array_map([$this, 'transformHandsetV2'], $handsets),
+            'pagination' => $pagination,
+        ]);
+    }
+
+    private function transformHandsetV2($handset): array
+    {
+        // Assuming you have logic to get currency, discount, etc.
+        $discount = 10; // Example, fetch from DB or config in real app
+        $amount = $handset->getPrice();
+        $finalPrice = round($amount * (1 - $discount / 100), 2);
+
+        return [
+            'id' => $handset->getId(),
+            'name' => $handset->getName(),
+            'brand' => [
+                'id' => $handset->getBrand()->getId(),
+                'name' => $handset->getBrand()->getName(),
+                'country' => $handset->getBrand()->getCountry(),
+            ],
+            'price' => [
+                'amount' => $amount,
+                'currency' => 'USD', // Or get from config/database
+                'discount_percentage' => $discount,
+                'final_price' => $finalPrice,
+            ],
+            'release_date' => $handset->getReleaseDate()?->format('Y-m-d'),
+            'features' => $handset->getFeatures(),
+            'specifications' => $handset->getSpecifications(),
+            'description' => $handset->getDescription(),
+        ];
+    }
+}
