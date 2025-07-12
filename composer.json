@@ -18,6 +18,8 @@
         "symfony/event-dispatcher": "6.4.*",
         "symfony/flex": "^2",
         "symfony/framework-bundle": "6.4.*",
+        "symfony/lock": "6.4.*",
+        "symfony/rate-limiter": "6.4.*",
         "symfony/runtime": "6.4.*",
         "symfony/serializer": "6.4.*",
         "symfony/validator": "6.4.*",
