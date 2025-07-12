@@ -50,7 +50,7 @@ class HandsetController extends AbstractController
     private function transformHandsetV2($handset): array
     {
         // Assuming you have logic to get currency, discount, etc.
-        $discount = 10; // Example, fetch from DB or config in real app
+        $discount = $handset->getDiscountPercentage();
         $amount = $handset->getPrice();
         $finalPrice = round($amount * (1 - $discount / 100), 2);
 
@@ -64,7 +64,7 @@ class HandsetController extends AbstractController
             ],
             'price' => [
                 'amount' => $amount,
-                'currency' => 'USD', // Or get from config/database
+                'currency' => $handset->getCurrency(),
                 'discount_percentage' => $discount,
                 'final_price' => $finalPrice,
             ],

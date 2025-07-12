@@ -35,6 +35,8 @@ class HandsetFixtures extends Fixture implements DependentFixtureInterface
             $brandRefKey = 'brand_' . $brandKeys[array_rand($brandKeys)];
             $handset->setBrand($this->getReference($brandRefKey, Brand::class));
 
+            $handset->setCurrency($faker->randomElement(['USD', 'EUR', 'AED']));
+            $handset->setDiscountPercentage($faker->numberBetween(0, 20));
             $handset->setPrice($faker->randomFloat(2, 199, 1499));
             $handset->setReleaseDate($faker->dateTimeBetween('-3 years', 'now'));
             $handset->setFeatures($faker->randomElements($featuresList, rand(2, 4)));

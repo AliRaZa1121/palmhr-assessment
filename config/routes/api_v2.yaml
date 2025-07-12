@@ -1,4 +1,4 @@
-api_v1_handsets:
+api_v2_handsets:
     path: /handsets
     controller: App\Controller\Api\V2\HandsetController::index
     methods: [GET]

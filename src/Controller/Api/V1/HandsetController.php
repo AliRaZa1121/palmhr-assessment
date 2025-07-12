@@ -53,6 +53,7 @@ class HandsetController extends AbstractController
 
     private function transformHandsetV1($handset): array
     {
+        
         return [
             'id' => $handset->getId(),
             'name' => $handset->getName(),

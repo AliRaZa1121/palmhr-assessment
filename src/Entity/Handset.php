@@ -33,6 +33,12 @@ class Handset
     #[ORM\Column(type: 'json')]
     private array $specifications = [];
 
+    #[ORM\Column(type: 'string', length: 3, options: ['default' => 'USD'])]
+    private ?string $currency = 'USD';
+
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private ?int $discountPercentage = 0;
+
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $description = null;
 
@@ -110,6 +116,28 @@ class Handset
     public function setSpecifications(array $specifications): static
     {
         $this->specifications = $specifications;
+        return $this;
+    }
+
+    public function getCurrency(): ?string
+    {
+        return $this->currency;
+    }
+
+    public function setCurrency(string $currency): static
+    {
+        $this->currency = $currency;
+        return $this;
+    }
+
+    public function getDiscountPercentage(): ?int
+    {
+        return $this->discountPercentage;
+    }
+
+    public function setDiscountPercentage(int $discount): static
+    {
+        $this->discountPercentage = $discount;
         return $this;
     }
 
