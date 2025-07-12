@@ -1,0 +1,45 @@
+services:
+  db:
+    image: mysql:8
+    container_name: mobile_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+      MYSQL_DATABASE: mobile_catalogue
+      MYSQL_USER: user
+      MYSQL_PASSWORD: ''
+      MYSQL_ROOT_PASSWORD: ''
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  redis:
+    image: redis:7
+    container_name: mobile_redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]  # no password
+    volumes:
+      - redis_data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mobile_api
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: "mysql://root:@db:3306/mobile_catalogue"
+      REDIS_URL: "redis://redis:6379"
+    volumes:
+      - .:/var/www/html
+      - ./var:/var/www/html/var
+
+volumes:
+  db_data:
+  redis_data:

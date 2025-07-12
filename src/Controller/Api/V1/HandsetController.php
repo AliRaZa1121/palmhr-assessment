@@ -3,6 +3,7 @@
 namespace App\Controller\Api\V1;
 
 use App\Repository\HandsetRepository;
+use App\Service\CacheService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -10,35 +11,55 @@ use Symfony\Component\Routing\Annotation\Route;
 
 class HandsetController extends AbstractController
 {
-    #[Route('/handsets', name: 'api_v1_handsets', methods: ['GET'])]
-    public function index(Request $request, HandsetRepository $handsetRepository): JsonResponse
-    {
-        $filters = $this->parseFilters($request);
+    public function __construct(
+        private readonly CacheService $cacheService,
+        private readonly HandsetRepository $handsetRepository,
+    ) {}
 
-        // Prevent excessively large per_page
+    #[Route('/handsets', name: 'api_v1_handsets', methods: ['GET'])]
+    public function index(Request $request): JsonResponse
+    {
+
+        $filters = $this->parseFilters($request);
         $filters['per_page'] = min($filters['per_page'], 100);
 
-        // Get paginated/filter results
-        [$handsets, $total, $lastPage] = $handsetRepository->findByFilters($filters);
+        $cacheKey = $this->getCacheKey($filters);
 
-        return $this->json([
-            'data' => array_map([$this, 'transformHandsetV1'], $handsets),
-            'meta' => [
-                'total' => $total,
-                'per_page' => $filters['per_page'],
-                'current_page' => $filters['page'],
-                'last_page' => $lastPage,
-                'filters_applied' => array_filter([
-                    'brand' => $filters['brand'],
-                    'features' => $filters['features'] ?: null,
-                ]),
-            ],
-        ]);
+        $response = $this->cacheService->getOrSet($cacheKey, function () use ($filters) {
+
+            [$handsets, $total, $lastPage] = $this->handsetRepository->findByFilters($filters);
+
+            return [
+                'data' => array_map([$this, 'transformHandsetV1'], $handsets),
+                'meta' => [
+                    'total' => $total,
+                    'per_page' => $filters['per_page'],
+                    'current_page' => $filters['page'],
+                    'last_page' => $lastPage,
+                    'filters_applied' => array_filter([
+                        'brand' => $filters['brand'],
+                        'features' => $filters['features'] ?: null,
+                    ]),
+                ],
+            ];
+        });
+
+        return $this->json($response);
     }
 
+    /**
+     * Build cache key from filters.
+     */
+    private function getCacheKey(array $filters): string
+    {
+        return 'api_v1_handsets_' . md5(json_encode($filters));
+    }
+
+    /**
+     * Sanitize/parse API filters.
+     */
     private function parseFilters(Request $request): array
     {
-        // Validate and sanitize query parameters here for robustness
         return [
             'brand' => $request->query->get('brand'),
             'price_min' => $request->query->has('price_min') ? floatval($request->query->get('price_min')) : null,
@@ -51,9 +72,11 @@ class HandsetController extends AbstractController
         ];
     }
 
+    /**
+     * Transform a Handset entity for v1 output.
+     */
     private function transformHandsetV1($handset): array
     {
-        
         return [
             'id' => $handset->getId(),
             'name' => $handset->getName(),

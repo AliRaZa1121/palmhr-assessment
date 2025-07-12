@@ -3,6 +3,7 @@
 namespace App\Controller\Api\V2;
 
 use App\Repository\HandsetRepository;
+use App\Service\CacheService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -10,8 +11,13 @@ use Symfony\Component\Routing\Annotation\Route;
 
 class HandsetController extends AbstractController
 {
+    public function __construct(
+        private readonly CacheService $cacheService,
+        private readonly HandsetRepository $handsetRepository,
+    ) {}
+
     #[Route('/handsets', name: 'api_v2_handsets', methods: ['GET'])]
-    public function index(Request $request, HandsetRepository $handsetRepository): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         // Parse filters from request
         $filters = [
@@ -25,26 +31,37 @@ class HandsetController extends AbstractController
             'per_page' => $request->query->getInt('per_page', 20),
         ];
 
-        [$handsets, $total, $lastPage] = $handsetRepository->findByFilters($filters);
+        $cacheKey = $this->getCacheKey($filters);
 
-        // Build pagination links (assuming query params preserved)
-        $pagination = [
-            'total_items'    => $total,
-            'items_per_page' => $filters['per_page'],
-            'current_page'   => $filters['page'],
-            'total_pages'    => $lastPage,
-            'links' => [
-                'first' => '/api/v2/handsets?page=1',
-                'last'  => "/api/v2/handsets?page={$lastPage}",
-                'next'  => $filters['page'] < $lastPage ? "/api/v2/handsets?page=" . ($filters['page'] + 1) : null,
-                'prev'  => $filters['page'] > 1 ? "/api/v2/handsets?page=" . ($filters['page'] - 1) : null,
-            ]
-        ];
+        $response = $this->cacheService->getOrSet($cacheKey, function () use ($filters) {
+            [$handsets, $total, $lastPage] = $this->handsetRepository->findByFilters($filters);
 
-        return $this->json([
-            'data' => array_map([$this, 'transformHandsetV2'], $handsets),
-            'pagination' => $pagination,
-        ]);
+            // Build pagination links (assuming query params preserved)
+            $pagination = [
+                'total_items'    => $total,
+                'items_per_page' => $filters['per_page'],
+                'current_page'   => $filters['page'],
+                'total_pages'    => $lastPage,
+                'links' => [
+                    'first' => '/api/v2/handsets?page=1',
+                    'last'  => "/api/v2/handsets?page={$lastPage}",
+                    'next'  => $filters['page'] < $lastPage ? "/api/v2/handsets?page=" . ($filters['page'] + 1) : null,
+                    'prev'  => $filters['page'] > 1 ? "/api/v2/handsets?page=" . ($filters['page'] - 1) : null,
+                ]
+            ];
+
+            return [
+                'data' => array_map([$this, 'transformHandsetV2'], $handsets),
+                'pagination' => $pagination,
+            ];
+        });
+
+        return $this->json($response);
+    }
+
+    private function getCacheKey(array $filters): string
+    {
+        return 'api_v2_handsets_' . md5(json_encode($filters));
     }
 
     private function transformHandsetV2($handset): array
