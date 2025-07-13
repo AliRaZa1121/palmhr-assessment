@@ -8,27 +8,50 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
-
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use App\Event\HandsetViewedEvent;
+use App\Event\PriceFilterAppliedEvent;
 
 class HandsetController extends AbstractController
 {
     public function __construct(
         private readonly CacheService $cacheService,
         private readonly HandsetRepository $handsetRepository,
+        private readonly EventDispatcherInterface $dispatcher,
     ) {}
 
     #[Route('/handsets', name: 'api_v1_handsets', methods: ['GET'])]
     public function index(Request $request): JsonResponse
     {
-
         $filters = $this->parseFilters($request);
         $filters['per_page'] = min($filters['per_page'], 100);
 
         $cacheKey = $this->getCacheKey($filters);
 
         $response = $this->cacheService->getOrSet($cacheKey, function () use ($filters) {
-
             [$handsets, $total, $lastPage] = $this->handsetRepository->findByFilters($filters);
+
+            // Dispatch PriceFilterAppliedEvent if price filters are used
+            if ($filters['price_min'] !== null || $filters['price_max'] !== null) {
+                $event = new PriceFilterAppliedEvent(
+                    min: $filters['price_min'],
+                    max: $filters['price_max'],
+                    resultCount: $total,
+                    timestamp: (new \DateTime())->format(DATE_ATOM),
+                    apiVersion: 'v1'
+                );
+                $this->dispatcher->dispatch($event);
+            }
+
+            // Dispatch HandsetViewedEvent for each handset in the result
+            foreach ($handsets as $handset) {
+                $event = new HandsetViewedEvent(
+                    handsetId: $handset->getId(),
+                    timestamp: (new \DateTime())->format(DATE_ATOM),
+                    apiVersion: 'v1'
+                );
+                $this->dispatcher->dispatch($event);
+            }
 
             return [
                 'data' => array_map([$this, 'transformHandsetV1'], $handsets),
