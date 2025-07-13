@@ -35,11 +35,14 @@ class HandsetRepository extends ServiceEntityRepository
         if ($filters['release_year'] !== null) {
             $qb->andWhere('YEAR(h.releaseDate) = :year')->setParameter('year', $filters['release_year']);
         }
-        if (!empty($filters['features'])) {
-            foreach ($filters['features'] as $idx => $feature) {
-                $qb->andWhere(":feature$idx MEMBER OF h.features")->setParameter("feature$idx", $feature);
-            }
+
+        foreach ($filters['features'] as $idx => $feature) {
+            $qb->andWhere("h.features LIKE :feature$idx")
+                ->setParameter("feature$idx", '%' . $feature . '%');
         }
+
+
+
         if ($filters['search']) {
             $qb->andWhere('h.name LIKE :search OR h.description LIKE :search')
                 ->setParameter('search', '%' . $filters['search'] . '%');
